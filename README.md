@@ -1,5 +1,6 @@
 # ANV: Authorizing Nature Verification Protocol
 
+![ANV PoC Demo](assets/demo.gif)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Status](https://img.shields.io/badge/Status-draft--anokhin--anv--00-orange.svg)]()
 [![Author](https://img.shields.io/badge/Author-Alex_Anokhin-purple)](https://olanokhin.com)

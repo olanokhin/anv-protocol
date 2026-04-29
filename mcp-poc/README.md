@@ -27,6 +27,16 @@ cd mcp-poc
 docker-compose up --build
 ```
 
+## One-Command Demo
+
+```bash
+cd mcp-poc
+python demo.py
+python demo.py --record --stats
+```
+
+`--record` keeps the terminal output compact and paced for screen capture. `--stats` prints the final `/anv/stats` responses from the warn and require servers.
+
 ## Four Cases
 
 ```bash
