@@ -1,0 +1,653 @@
+Network Working Group                                        A. Anokhin
+Internet-Draft                                             Independent
+Intended status: Informational                              April 2026
+Expires: October 2026
+
+         The Authorizing Nature Verification (ANV) Protocol
+                       draft-anokhin-anv-00
+
+   [Changelog: April 2026 — revised framing from proposal to
+   observation; added Non-Goals, Threat Model, and Attestation
+   Payload sections; added RATS/EAT, mTLS, SPIFFE, RFC9421
+   to standards relation; added middlebox ossification and
+   attestation privacy to security considerations; cartographer
+   tone throughout; updated URI schemes to httpsa:// wssa://.]
+
+Abstract
+
+   This document formalizes an emerging requirement in agentic
+   communication systems: the need for recipients to cryptographically
+   determine the authorization type of the communicating party —
+   human-controlled credential or AI provider instance — at the
+   session layer, before or during interaction.
+
+   The Authorizing Nature Verification (ANV) protocol defines a
+   minimal, composable transport-layer extension that semantically
+   encodes this authorization type using existing hardware roots of
+   trust (Secure Enclaves, FIDO2, TPM, Confidential Computing) and
+   PKI infrastructure. The term "nature" refers to the authorization
+   type of the communicating party, not to biological classification.
+
+   ANV does not replace existing identity systems (mTLS, SPIFFE,
+   OAuth 2.1, FIDO2). ANV does not verify content authorship or
+   model behavior. ANV provides the minimal mechanism to encode
+   authorization type at the session layer, composably with TLS,
+   QUIC, MLS, MCP, and A2A.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF). The list of current Internet-Drafts is at
+   https://datatracker.ietf.org/drafts/current/.
+
+   This Internet-Draft will expire on October 2026.
+
+1. Introduction
+
+   Modern communication protocols (TLS, DTLS, QUIC, MLS) verify
+   that data reached the correct endpoint securely. They do not
+   semantically encode the authorization type of the communicating
+   party at the session layer.
+
+   This produces four communication states lacking session-layer
+   authorization type encoding:
+
+     H2H    human  -> human    no mutual authorization attestation
+     H2AI   human  -> AI       human side: FIDO2; AI side: unattested
+     AI2H   AI     -> human    no session-layer standard exists
+     AI2AI  AI     -> AI       no attestation standard
+
+   Existing authentication mechanisms — mTLS, OAuth 2.1,
+   SPIFFE/SPIRE, signed agent cards — establish workload identity
+   and permission scope. They do not semantically encode whether
+   the authorizing party is a human principal or an AI provider
+   instance. This distinction is documented as an open problem in
+   the MCP and A2A security specifications independently.
+
+   We observe that emerging agentic systems across independent
+   implementations require this encoding. This document formalizes
+   the minimal mechanism to address this class of problems.
+
+   This problem was previously theoretical. It becomes practical
+   with the emergence of agentic systems capable of autonomously
+   initiating real-time interactions at scale. MCP and A2A are
+   early instances of a broader class of protocols that expose
+   this gap operationally. The window for establishing a neutral,
+   composable standard at the transport layer is now open.
+
+   Core principle: A channel without ANV data is not necessarily
+   fraudulent — it is unattested. The protocol makes no claim
+   about unverified participants beyond the absence of proof.
+
+2. Terminology
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL
+   NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED",
+   "MAY", and "OPTIONAL" in this document are to be interpreted as
+   described in BCP 14 [RFC2119] [RFC8174].
+
+   Authorizing Party: The human principal or AI provider instance
+   that cryptographically authorized a communication session.
+
+   Authorization Type: The semantic classification of the
+   authorizing party — SIGNED_HUMAN, SIGNED_AI, or UNSIGNED.
+   Distinct from workload identity as provided by mTLS or SPIFFE.
+
+   Authorization Handshake: The ANV Phase 1 process establishing
+   mutual session authorization type and deriving a session key.
+
+   Attestation: A cryptographically signed claim about the hardware
+   and credential state of the authorizing party at session time,
+   expressed in EAT format [RFC9528].
+
+   Provider Endpoint: The attestable unit for AI participants —
+   the AI provider's service endpoint on verified hardware
+   infrastructure. The underlying model implementation is outside
+   attestation scope.
+
+   Certificate Issuer Mismatch: A condition in which the certificate
+   presented by a party is issued to an organization other than
+   the expected authorizing party. Detectable without content
+   analysis.
+
+   Agentic Protocol: A communication protocol designed for
+   autonomous AI agent interactions, typically operating over
+   HTTPS. MCP and A2A are current instances of this class.
+
+3. Non-Goals
+
+   ANV explicitly does not address the following:
+
+   (a) Replacement of existing identity systems. ANV is composable
+       with mTLS, SPIFFE/SPIRE, OAuth 2.1, and FIDO2. It does not
+       supersede or conflict with these mechanisms.
+
+   (b) Content authorship verification. ANV verifies who authorized
+       the channel. It makes no claim about the origin of individual
+       messages within the channel. Recipients requiring per-message
+       content authorship verification should use C2PA [C2PA] in
+       conjunction with ANV.
+
+   (c) Model implementation attestation. The attestable unit is the
+       provider's service endpoint. Internal architecture, weights,
+       and model versions are outside scope.
+
+   (d) Trust scoring or behavioral guarantees. ANV encodes
+       authorization type, not trustworthiness or intent.
+
+   (e) Biological classification. ANV does not determine whether a
+       human is biologically present. It verifies that a human
+       principal's device-bound credential authorized the session.
+
+   (f) Continuous presence guarantee. ANV attests the authorization
+       type at session initiation time. It does not guarantee that
+       the authorizing party remains present or active throughout
+       the session duration.
+
+   (g) Prevention of relay attacks within authorized sessions. A
+       SIGNED_HUMAN party may relay AI-generated content within an
+       authorized session. ANV records the human as the accountable
+       authorizing party at session initiation. This is an explicit
+       scope boundary: ANV establishes session-layer accountability,
+       not per-message content authorship.
+
+   (h) Cryptographic proof of provider identity beyond organizational
+       certificate level. SIGNED_AI proves that a session was
+       authorized by a hardware-bound endpoint holding a certificate
+       issued to a verified organization. It does not prevent an
+       adversary from obtaining a certificate for a similarly-named
+       organization. Recipients SHOULD maintain pre-authorized
+       provider certificate lists and treat certificate issuer
+       mismatch as a policy signal, not a cryptographic proof of
+       fraud.
+
+   ANV cryptographically guarantees:
+   - Which attestation class authorized the session (SIGNED_HUMAN,
+     SIGNED_AI, or UNSIGNED)
+   - That the session was authorized by a hardware-bound credential
+     at initiation time
+   - The organizational-level identity of the authorizing party
+
+   ANV does NOT cryptographically guarantee:
+   - Continuous presence of the authorizing party
+   - Per-message content authorship
+   - Provider identity beyond organizational certificate level
+   - Prevention of relay attacks within an authorized session
+
+4. Applicability Criteria
+
+   ANV is applicable to a protocol when all three of the following
+   conditions are satisfied simultaneously:
+
+   (1) Real-time bidirectional channel: the protocol establishes
+       a session in which both parties are present concurrently.
+
+   (2) Pre-interaction authorization visibility: the recipient can
+       act on authorization type information before or during the
+       interaction, not solely after content delivery.
+
+   (3) Authorizing party type is material: the type of authorizing
+       party — human principal or AI provider instance — is
+       relevant to the recipient's decision to engage.
+
+   If any condition is not satisfied, existing standards (C2PA,
+   DKIM, S/MIME, GPG) address the use case more appropriately.
+   See Section 10 for explicit out-of-scope categories.
+
+5. Threat Model
+
+   ANV addresses three documented classes of threat:
+
+   5.1. AI Impersonation of Human Principal
+
+      An AI agent presents itself as a human in a real-time
+      channel without cryptographic disclosure. Recipients cannot
+      distinguish this without content analysis. ANV makes the
+      authorization type available at session initiation, before
+      content is received.
+
+   5.2. Undisclosed AI Interaction
+
+      A human recipient engages with an AI agent without knowledge
+      of its provider identity. No existing transport-layer
+      standard requires cryptographic provider disclosure at
+      session initiation. ANV provides this before content
+      delivery.
+
+   5.3. Rogue Agent Injection in Pipeline
+
+      An unaffiliated AI agent is injected into a multi-agent
+      pipeline (MCP tool chain, A2A task delegation). Certificate
+      issuer mismatch or UNSIGNED state is detectable at the
+      point of injection without content analysis.
+
+6. Authorization States
+
+   ANV defines three authorization states as a minimal initial
+   classification. This set is designed for extension and policy
+   layering above the protocol level.
+
+   SIGNED_HUMAN
+      The channel was authorized by a human-controlled credential,
+      cryptographically bound to a device via biometric attestation
+      (FIDO2 + Secure Enclave). ANV does not prove continuous human
+      presence — it attests that a human-controlled device credential
+      authorized the session. Device certificates may additionally
+      attest organizational affiliation. Authorization type is encoded
+      at the organizational level, not the individual entity level.
+
+   SIGNED_AI
+      The channel was authorized by an AI provider instance,
+      cryptographically bound to hardware via TPM or Confidential
+      Computing attestation. The attestable unit is the provider's
+      service endpoint on attested hardware. Provider accountability
+      for model behavior is analogous to server operator
+      accountability for application behavior in TLS deployments.
+
+   UNSIGNED
+      No ANV data is present. Legacy fallback. UNSIGNED is a
+      defined state, not an error condition. Recipients determine
+      their own policy for UNSIGNED sessions. ANV does not introduce
+      a negative trust signal. The protocol only introduces positive
+      attestations — UNSIGNED means the absence of proof, not the
+      presence of risk.
+
+7. Applicability
+
+   7.1. H2H — Mutual Authorization Attestation
+
+      Both parties present SIGNED_HUMAN credentials. Certificate
+      issuer identifies organizational affiliation. A party
+      without organizational device infrastructure presents
+      personal SIGNED_HUMAN or UNSIGNED; this distinction is
+      available at session initiation without content analysis.
+
+      Applicable to: legally and financially significant
+      communications requiring session-layer audit trail.
+
+   7.2. H2AI — Verified AI Provider Identity
+
+      A human initiates a session with a service presenting
+      SIGNED_AI. The human can verify the provider certificate
+      against known issuers. Certificate issuer mismatch is
+      detectable without content analysis.
+
+      Complements FIDO2 [FIDO-CTAP2]: ANV adds AI-side
+      attestation where FIDO2 provides human-side attestation.
+
+      Applicable to: client-facing AI services operated by
+      regulated institutions.
+
+   7.3. AI2H — Disclosed AI Initiation
+
+      An AI agent initiates a session. SIGNED_AI provides the
+      recipient with cryptographic evidence of the AI provider
+      before content delivery. No existing transport-layer
+      standard addresses this scenario. This is the primary
+      gap ANV targets.
+
+      Scope boundary: ANV guarantees that an AI provider
+      authorized the session initiation. It does not prevent
+      a SIGNED_HUMAN party from relaying AI-generated content
+      within an authorized session. Recipients requiring
+      per-message content authorship guarantees should use
+      C2PA [C2PA] in conjunction with ANV.
+
+      Regulatory note: EU AI Act Article 52 requires disclosure
+      that content is AI-generated. ANV provides cryptographic
+      proof of AI provider authorization at session initiation,
+      which constitutes technical evidence of channel-level
+      disclosure. Per-message content disclosure requires
+      additional mechanisms (C2PA) beyond ANV scope.
+
+      Applicable to: AI-operated services where the recipient
+      has a legitimate interest in identifying the authorizing
+      party type before engaging. Strongest guarantee in
+      fully-automated AI2H scenarios where no human relay
+      is present.
+
+   7.4. AI2AI — Agent Pipeline Attestation
+
+      Multi-agent pipelines (MCP tool chains, A2A task
+      delegation) produce a verifiable authorization chain
+      across each hop. An agent without organizational
+      certificate infrastructure produces certificate issuer
+      mismatch or UNSIGNED at the point of entry, detectable
+      without content analysis.
+
+      Applicable to: multi-agent workflows requiring
+      accountability logging and forensic auditability.
+
+   7.5. UNSIGNED — Legacy Compatibility
+
+      Existing traffic continues to function. UNSIGNED is a
+      defined state. Recipients determine their own policy.
+
+8. Applicability to Agentic Protocols
+
+   8.1. Model Context Protocol (MCP)
+
+      MCP defines agent-to-tool communication over HTTPS. The
+      MCP security specification documents that OAuth 2.1 and
+      PKCE establish token integrity but do not prove which AI
+      provider instance initiated the request at the hardware
+      level. ANV addresses this as a TLS extension beneath MCP.
+      No MCP protocol changes required. The ANV handshake
+      completes before any MCP messages are exchanged.
+
+   8.2. Agent2Agent Protocol (A2A)
+
+      A2A defines agent-to-agent communication over HTTPS.
+      Signed agent cards (A2A v0.3) establish card content
+      integrity. ANV adds hardware-bound provider attestation
+      at the TLS session layer, complementing signed cards.
+      No A2A protocol changes required.
+
+      An optional ANV field MAY be included in the A2A agent
+      card to advertise ANV support. The authoritative
+      attestation is the TLS-layer handshake.
+
+   8.3. Protocol-Agnostic Applicability
+
+      MCP and A2A are current instances of a broader class.
+      Any agentic protocol operating over TLS and satisfying
+      Section 4 criteria can adopt ANV without changes to
+      the agentic protocol itself.
+
+9. Protocol Operation
+
+   ANV follows Control Plane / Data Plane separation:
+
+   9.1. Phase 1 — Authorization Handshake (once per session)
+
+      Transport: QUIC or TLS 1.3 extension (port 443)
+
+      Human participant:
+         Device-bound biometric attestation (FIDO2 / Secure Enclave)
+         Generates symmetric session key
+         Signed by biometric credential + hardware
+
+      AI participant:
+         Hardware attestation (TPM / Confidential Computing)
+         Attestation expressed in EAT format [RFC9528]
+         Verified by RATS Verifier service
+         Generates symmetric session key
+         Signed by hardware attestation credential
+
+      Result: Authorization type established; session key derived.
+
+   9.2. Phase 2 — Data Stream (per packet)
+
+      Transport: UDP / QUIC data plane
+      Encryption: AES-GCM (AES-NI hardware acceleration)
+      Integrity: MAC with session key from Phase 1
+      Latency overhead: approximately zero
+
+      A packet with invalid MAC MUST be silently dropped.
+
+   [EDITOR NOTE: Detailed ANV Extension Payload structure,
+   TLS 1.3 ClientHello/ServerHello extension integration, and
+   formal KDF specification (proposed: HKDF-SHA256, consistent
+   with RFC 8446) to be provided in draft-01.]
+
+10. Out of Scope
+
+   10.1. Asynchronous Delivery
+
+      Email (SMTP/SMTPS), RSS/Atom, webhooks, push notifications
+      do not satisfy criterion (2). C2PA, DKIM, S/MIME apply.
+
+   10.2. Non-Bidirectional Sessions
+
+      DNS, NTP, CDN delivery, multicast do not satisfy criterion
+      (1). DNSSEC and equivalent standards apply.
+
+   10.3. Content Signing
+
+      Code signing, package registries, Git commits do not
+      satisfy criterion (2) in the ANV sense. GPG, Authenticode
+      apply.
+
+11. Attestation Payload Format
+
+   ANV attestation_payload uses Entity Attestation Token (EAT)
+   format [RFC9528], consistent with IETF RATS architecture.
+
+   Hardware-specific attestation evidence (Intel SGX, AMD SEV,
+   ARM TrustZone, TPM) is expressed as EAT claims and verified
+   by RATS Verifier services. Receiving parties verify the EAT
+   token from a RATS Verifier rather than raw hardware evidence
+   directly. This abstracts hardware vendor diversity from the
+   ANV session layer and reuses existing RATS infrastructure.
+
+   [EDITOR NOTE: Specific EAT claim set and RATS Verifier
+   interaction model to be specified in draft-01.]
+
+   ANV attestation tokens are exportable from established sessions
+   and verifiable offline, enabling optional integration with
+   distributed ledger platforms. This is a deployment concern
+   and does not affect protocol operation.
+
+12. Trust Model
+
+   ANV inherits the PKI trust model [RFC5280].
+
+   The protocol provides cryptographic proof of authorization
+   type at the session layer. Trust in the authorizing party is
+   a reputational and legal concern outside protocol scope,
+   consistent with TLS [RFC8446] and FIDO2 [FIDO-CTAP2].
+
+   Certificate issuance follows existing CA/Browser Forum
+   requirements. An AI provider endpoint certificate is issued
+   to a verified organization on the same basis as a domain
+   certificate. CA accountability for misissuance applies on
+   the same basis as in existing PKI deployments.
+
+   Authorization type is encoded at the organizational level.
+   The protocol establishes accountability, not surveillance.
+   An authorized session produces a forensic audit trail.
+
+13. Relation to Existing Standards
+
+   TLS 1.3 [RFC8446]
+      Authenticates server certificate. Does not semantically
+      encode authorization type. ANV adds this encoding as
+      a TLS extension.
+
+   mTLS
+      Mutual certificate authentication establishing workload
+      identity. Does not encode human vs AI authorization type.
+      ANV adds semantic type encoding above mTLS identity layer.
+
+   FIDO2 [FIDO-CTAP2]
+      Human-device binding. Human side only. ANV adds AI-side
+      attestation and session-level type encoding. Composable.
+
+   SPIFFE/SPIRE
+      Workload identity for cloud and Kubernetes environments.
+      Establishes infrastructure identity without human/AI
+      semantic distinction. ANV operates as a semantic layer
+      above SPIFFE-class identity.
+
+   OAuth 2.1
+      Authorization scope and token integrity. Permission layer.
+      ANV is the attestation layer below. Composable.
+
+   RATS / EAT [RFC9528]
+      Remote attestation architecture and token format. ANV
+      attestation_payload uses EAT format. RATS Verifiers
+      handle hardware-specific verification.
+
+   RFC 9421 (HTTP Message Signatures)
+      HTTP-layer request signing. ANV operates at TLS session
+      layer. Different layers; composable.
+
+   MCP Authorization Specification
+      Token-based MCP client authorization. Hardware-level
+      provider attestation documented as open problem. ANV
+      addresses this at TLS layer without MCP changes.
+
+   A2A Protocol [Linux Foundation]
+      Agent-to-agent communication. Signed agent cards (v0.3)
+      establish card integrity. ANV adds session-layer hardware
+      attestation. Composable.
+
+   C2PA
+      Content signing post-creation. Out of ANV scope per
+      Section 10.
+
+   Certificate Transparency [RFC6962]
+      Proposed as audit model for ANV AI provider attestation
+      registries.
+
+14. Scope Boundaries
+
+   14.1. Content Authorship
+
+      ANV verifies who authorized the channel. Content
+      authorship verification is outside scope.
+
+   14.2. Model Implementation
+
+      Internal model architecture, weights, and implementation
+      details are outside attestation scope, consistent with
+      TLS not attesting to server application behavior.
+
+   14.3. Provider Trustworthiness
+
+      SIGNED_AI proves a hardware-bound provider endpoint.
+      Provider trustworthiness is a reputational concern
+      outside protocol scope.
+
+   14.4. Physical Coercion
+
+      Physical security of attesting devices is a precondition
+      for all hardware attestation schemes. Outside protocol
+      scope, consistent with FIDO2.
+
+15. Security Considerations
+
+   15.1. Content Relay
+
+      A SIGNED_HUMAN party may relay AI-generated content
+      within an authorized session. The protocol records the
+      human as the accountable authorizing party per Section
+      14.1. This is an intentional design boundary: the protocol
+      establishes accountability at the session layer, not
+      content authorship at the application layer. Continuous
+      liveness attestation (periodic re-attestation within the
+      data stream) is a proposed optional extension that raises
+      the operational cost of sustained relay by requiring
+      continuous physical presence at the attesting device.
+      Specification deferred to a future draft.
+
+   15.2. TLS Middlebox Ossification
+
+      Corporate firewalls and DPI proxies may drop connections
+      with unknown TLS extension types on port 443. ANV defines
+      three operational modes to address deployment constraints:
+
+      Mode A (preferred): TLS ClientHello extension. Full ANV
+        handshake at connection establishment. Optimal latency.
+
+      Mode B (fallback): Post-TLS ANV handshake. ANV attestation
+        exchanged as a separate message after TLS establishment.
+        Compatible with middleboxes that drop unknown extensions.
+        Adds one RTT.
+
+      Mode C (legacy): UNSIGNED. No ANV attestation. Backward
+        compatible with all existing infrastructure. Recipients
+        apply their own policy.
+
+      GREASE-style extension probing and automatic fallback
+      negotiation between Mode A and Mode B to be specified
+      in draft-01.
+
+   15.3. Attestation Payload Size and Privacy
+
+      EAT payloads may be several kilobytes when including
+      certificate chains and attestation evidence. Large
+      ClientHello extensions risk MTU fragmentation in QUIC
+      Initial packets and additional RTT in TLS due to Initial
+      Congestion Window constraints.
+
+      Mitigations under consideration for draft-01:
+      (a) Deferred attestation: ANV handshake as a post-TLS
+          message, avoiding ClientHello size constraints.
+      (b) TLS Encrypted ClientHello (ECH): ANV attestation_payload
+          carried inside ECH, concealing organizational metadata
+          from passive observers and reducing fragmentation risk.
+
+      EAT payloads additionally reveal organizational affiliation
+      and infrastructure metadata. Privacy-preserving options
+      (selective disclosure, zero-knowledge proofs) to be
+      explored in future drafts. The IETF Privacy Considerations
+      guidelines [RFC6973] apply.
+
+   15.4. Device Coercion
+
+      Outside protocol scope per Section 14.4.
+
+   15.5. Attestation Registry Centralization
+
+      AI provider endpoint attestation requires a registry
+      of valid provider certificates. Certificate Transparency
+      log architecture [RFC6962] is the proposed mitigation.
+      Governance model to be defined in working group.
+
+16. IANA Considerations
+
+   URI scheme registrations to be requested upon working group
+   formation and reference implementation availability. IANA
+   assignment is a standardization milestone, not a prerequisite
+   for experimental implementation.
+
+   httpsa://  ANV-attested HTTPS. Designator "a" denotes
+              an ANV-attested channel. Follows precedent of
+              https:// over http://.
+
+   wssa://    ANV-attested WebSocket Secure. Follows precedent
+              of wss:// over ws://. Valid only as explicit
+              scheme; ANV via HTTP upgrade deferred to future
+              draft.
+
+   No known conflicts with existing IANA URI scheme registry
+   as of April 2026.
+
+17. References
+
+   [RFC2119]    Bradner, S., "Key words for use in RFCs", BCP 14.
+   [RFC5280]    Cooper, D. et al., "Internet X.509 PKI Certificate
+                and CRL Profile".
+   [RFC6962]    Laurie, B. et al., "Certificate Transparency".
+   [RFC6973]    Cooper, A. et al., "Privacy Considerations for
+                Internet Protocols".
+   [RFC8446]    Rescorla, E., "The Transport Layer Security (TLS)
+                Protocol Version 1.3".
+   [RFC9000]    Iyengar, J. and M. Thomson, "QUIC: A UDP-Based
+                Multiplexed and Secure Transport".
+   [RFC9421]    Backman, A. et al., "HTTP Message Signatures".
+   [RFC9420]    Barnes, R. et al., "The Messaging Layer Security
+                (MLS) Protocol".
+   [RFC9528]    Lundblade, L. et al., "Entity Attestation Token
+                (EAT)".
+   [FIDO-CTAP2] FIDO Alliance, "Client to Authenticator Protocol 2".
+   [MCP-AUTH]   Anthropic, "Model Context Protocol Authorization
+                Specification", 2025.
+   [A2A]        Linux Foundation, "Agent2Agent Protocol
+                Specification", v0.3, 2025.
+   [RATS-ARCH]  Birkholz, H. et al., "Remote ATtestation procedureS
+                (RATS) Architecture", RFC 9334, 2023.
+   [WIMSE]      IETF WIMSE Working Group, "Workload Identity in
+                Multi-System Environments",
+                https://datatracker.ietf.org/wg/wimse/
+
+Author's Address
+
+   Alex Anokhin
+   Independent Researcher
+   Email: olanokhin@gmail.com
+   GitHub: github.com/olanokhin/anv-protocol
