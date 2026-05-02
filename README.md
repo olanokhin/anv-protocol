@@ -3,6 +3,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Status](https://img.shields.io/badge/Status-draft--anokhin--anv--00-orange.svg)]()
 [![Author](https://img.shields.io/badge/Author-Alex_Anokhin-purple)](https://olanokhin.com)
+[![HF Space](https://img.shields.io/badge/🤗%20Demo-HuggingFace%20Spaces-yellow.svg)](https://huggingface.co/spaces/olanokhin/anv-protocol-demo)
 ![ANV PoC Demo](assets/demo.gif)
 
 > *TLS secured the channel. ANV identifies who authorized it.*
