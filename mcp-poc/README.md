@@ -1,6 +1,11 @@
-# ANV PoC Stage 1
+# ATA PoC Stage 1
 
-This PoC demonstrates that an MCP server can identify the caller's ANV authorization type before executing any tool and can enforce `warn` or `require` policy accordingly. The implementation is intentionally mock-only and uses JSON-over-HTTP headers plus HMAC validation rather than real TLS extensions or CBOR EAT tokens.
+This PoC demonstrates that an MCP server can identify the caller's ATA authorization type before executing any tool and can enforce `warn` or `require` policy accordingly. The implementation is intentionally mock-only and uses JSON-over-HTTP headers plus HMAC validation rather than real TLS extensions or CBOR EAT tokens.
+
+Compatibility note: the current demo intentionally keeps the earlier
+experimental `ANV` API names (`--anv`, `--anv-policy`, `/anv/stats`,
+and `X-ANV-*` headers). These names will be migrated separately if
+the ATA naming sticks.
 
 ## Quick Start
 
@@ -50,4 +55,4 @@ For a true latency baseline, start a separate server with `python mcp_server.py 
 python benchmark.py --server=http://localhost:8001 --baseline-server=http://localhost:8000 --n=100
 ```
 
-Full protocol and PoC details live in [../spec/anv-poc-spec.md](../spec/anv-poc-spec.md).
+Full protocol and PoC details live in [../spec/ata-poc-spec.md](../spec/ata-poc-spec.md).

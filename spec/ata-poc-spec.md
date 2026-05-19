@@ -1,11 +1,16 @@
-# ANV Protocol — PoC Stage 1: MCP Demo
+# ATA Protocol — PoC Stage 1: MCP Demo
 ## Status: Implementation ready | April 2026
+
+Note: the protocol framing is now ATA. This PoC intentionally keeps
+the earlier experimental `ANV` wire/API names (`X-ANV-*`, `--anv`,
+`/anv/stats`, `ANVMiddleware`) for compatibility with the current
+demo implementation.
 
 ---
 
 ## Objective
 
-Demonstrate that ANV authorization type is visible to an MCP server
+Demonstrate that ATA authorization type is visible to an MCP server
 before any tool call is processed. Show that policy enforcement
 (warn vs require) works correctly for both SIGNED_AI and UNSIGNED
 agents. Measure latency overhead.
@@ -71,11 +76,11 @@ Endpoints:
 ```
 GET  /health              server status + current policy
 GET  /tools               list available tools
-POST /tools/call          execute tool call (ANV enforced here)
+POST /tools/call          execute tool call (ATA enforced here)
 GET  /anv/stats           session statistics by authorization type
 ```
 
-ANV Middleware runs on every POST /tools/call:
+The legacy ANV middleware runs on every POST /tools/call:
 1. Read X-ANV-* headers
 2. Validate mock EAT token signature
 3. Determine authorization type: SIGNED_AI | SIGNED_HUMAN | UNSIGNED
@@ -92,8 +97,8 @@ calls the MCP tool server, returns the result.
 
 Startup flags:
 ```bash
-python agent.py --anv=true    # sends ANV headers (SIGNED_AI)
-python agent.py --anv=false   # sends no ANV headers (UNSIGNED)
+python agent.py --anv=true    # sends legacy ANV headers (SIGNED_AI)
+python agent.py --anv=false   # sends no legacy ANV headers (UNSIGNED)
 ```
 
 Endpoints:
@@ -105,7 +110,7 @@ POST /run    {"task": "Calculate 42 * 7"}
 
 ---
 
-### ANV Module: anv/
+### Legacy ANV Module: anv/
 
 ```
 anv/
@@ -235,7 +240,7 @@ Response: HTTP 403
     "received": "UNSIGNED",
     "required": ["SIGNED_AI", "SIGNED_HUMAN"],
     "hint": "Attach X-ANV-* headers to your request.",
-    "docs": "https://github.com/olanokhin/anv-protocol"
+    "docs": "https://github.com/olanokhin/ata-protocol"
   }
 
 Agent log:
@@ -247,7 +252,7 @@ Agent log:
 
 ## Benchmark: benchmark.py
 
-100 requests each mode. Measure ANV middleware overhead.
+100 requests each mode. Measure legacy ANV middleware overhead.
 
 ```
 python benchmark.py --server=http://localhost:8001
@@ -278,8 +283,8 @@ Production estimate: <1ms (hardware AES-NI)
 
 ```bash
 # Clone
-git clone https://github.com/olanokhin/anv-protocol
-cd anv-protocol/mcp-poc
+git clone https://github.com/olanokhin/ata-protocol
+cd ata-protocol/mcp-poc
 
 # Install
 pip install fastapi uvicorn httpx pytest
@@ -346,7 +351,7 @@ The 2ms overhead measured in this PoC reflects:
 - Mock HMAC-SHA256 token validation
 - JSON serialization
 
-This does NOT represent production ANV overhead. Real TLS
+This does NOT represent production ATA overhead. Real TLS
 extension latency depends on:
 - RATS Verifier round-trip (external service call)
 - CBOR EAT parsing (not JSON)
@@ -374,7 +379,7 @@ and is deferred to PoC Stage 2 (Go SDK, draft-01 scope).
 ## Repository Structure
 
 ```
-anv-protocol/
+ata-protocol/
   mcp-poc/
     anv/
       __init__.py
@@ -392,5 +397,5 @@ anv-protocol/
 ---
 
 **Author:** Alex Anokhin
-**GitHub:** github.com/olanokhin/anv-protocol
+**GitHub:** github.com/olanokhin/ata-protocol
 **Date:** April 2026

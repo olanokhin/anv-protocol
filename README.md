@@ -1,12 +1,18 @@
-# ANV: Authorizing Nature Verification Protocol
+# ATA: Authorization Type Attestation Protocol
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Status](https://img.shields.io/badge/Status-draft--anokhin--anv--00-orange.svg)]()
+[![Status](https://img.shields.io/badge/Status-draft--anokhin--ata--00-orange.svg)]()
 [![Author](https://img.shields.io/badge/Author-Alex_Anokhin-purple)](https://olanokhin.com)
-[![HF Space](https://img.shields.io/badge/🤗%20Demo-HuggingFace%20Spaces-yellow.svg)](https://huggingface.co/spaces/olanokhin/anv-protocol-demo)
-![ANV PoC Demo](assets/demo.gif)
+[![HF Space](https://img.shields.io/badge/🤗%20Demo-HuggingFace%20Spaces-yellow.svg)](https://huggingface.co/spaces/olanokhin/ata-protocol-demo)
+![ATA PoC Demo](assets/demo.gif)
 
-> *TLS secured the channel. ANV identifies who authorized it.*
+> *TLS secured the channel. ATA identifies who authorized it.*
+
+The current PoC implementation still uses legacy `ANV` names for
+headers, CLI flags, endpoints, and Python symbols (`X-ANV-*`,
+`--anv`, `/anv/stats`, `ANVMiddleware`). Those names are retained
+for compatibility with the existing demo and will be migrated
+separately if ATA sticks.
 
 ---
 
@@ -35,8 +41,8 @@ Existing authentication mechanisms — mTLS, OAuth 2.1, SPIFFE/SPIRE,
 signed agent cards — establish workload identity and permission scope.
 They do not semantically encode whether the authorizing party is a
 human principal or an AI provider instance at the session layer.
-This distinction is documented as an open problem in the MCP and A2A
-security specifications.
+Current MCP and A2A authorization mechanisms do not specify
+hardware-level AI provider attestation.
 
 This document formalizes the minimal mechanism required to address
 this class of problems across independent agentic systems.
@@ -45,41 +51,41 @@ This problem was previously theoretical. It becomes practical with
 the emergence of agentic systems capable of autonomously initiating
 real-time interactions at scale. MCP and A2A are early instances of
 a broader class of protocols that expose this gap operationally.
-The window for establishing a neutral, composable standard at the
-transport layer is now open.
+This motivates documenting a transport-layer mechanism before
+incompatible deployments emerge.
 
 ---
 
 ## Non-Goals
 
-ANV explicitly does not:
+ATA explicitly does not:
 - Replace existing identity systems (mTLS, SPIFFE, OAuth 2.1, FIDO2)
 - Verify content authorship or per-message origin
 - Attest to internal AI implementation details
 - Provide trust scoring or behavioral guarantees
-- Classify biological nature of participants
+- Determine biological presence
 - Guarantee continuous presence of authorizing party
 - Prevent relay attacks within authorized sessions
 - Prove provider identity beyond organizational certificate level
 
-**ANV cryptographically guarantees:**
+**ATA cryptographically guarantees:**
 - Which attestation class authorized the session
 - That a hardware-bound credential authorized session initiation
 - Organizational-level identity of the authorizing party
 
-**ANV does NOT cryptographically guarantee:**
+**ATA does NOT cryptographically guarantee:**
 - Continuous presence of the authorizing party after initiation
 - Per-message content authorship
 - Prevention of SIGNED_HUMAN relaying AI-generated content
 
-For per-message content authorship, use C2PA in conjunction with ANV.
-ANV and C2PA are complementary and composable.
+For per-message content authorship, use C2PA in conjunction with ATA.
+ATA and C2PA are complementary and composable.
 
 ---
 
 ## Approach
 
-ANV proposes a transport-layer extension that semantically encodes
+ATA proposes a transport-layer extension that semantically encodes
 the authorization type of a communication session.
 
 Three states representing minimal initial classifications:
@@ -92,8 +98,8 @@ SIGNED_HUMAN    human-controlled credential + device attestation
                 authorized the session
 SIGNED_AI       hardware-bound provider attestation
                 (TPM / Confidential Computing)
-UNSIGNED        no ANV data — legacy fallback
-                ANV introduces no negative trust signal;
+UNSIGNED        no ATA data — legacy fallback
+                ATA introduces no negative trust signal;
                 UNSIGNED means absence of proof, not presence of risk
 ```
 
@@ -106,7 +112,7 @@ attested hardware infrastructure — not the underlying model
 implementation. This is analogous to TLS attesting server identity
 without attesting application behavior.
 
-ANV encodes authorization type through organizational certificate
+ATA encodes authorization type through organizational certificate
 binding. The authorizing party is identified at the organizational
 level, not at the individual entity level. The protocol establishes
 accountability, not surveillance.
@@ -117,7 +123,7 @@ UNSIGNED does not mean fraudulent. It means unattested.
 
 ## Applicability Criteria
 
-ANV is applicable to a protocol when all three conditions are
+ATA is applicable to a protocol when all three conditions are
 satisfied simultaneously:
 
 ```
@@ -130,18 +136,18 @@ satisfied simultaneously:
 
 ## Threat Model
 
-ANV addresses three documented classes of threat:
+ATA is intended to address three threat classes:
 
 **AI impersonation of human principal**
 An AI agent presents itself as a human in a real-time channel without
 cryptographic disclosure. Recipients cannot distinguish this without
-content analysis. ANV makes the distinction available at session
+content analysis. ATA makes the distinction available at session
 initiation before content is received.
 
 **Undisclosed AI interaction**
 A human recipient engages with an AI agent without knowledge of its
 provider identity. No existing transport-layer standard requires
-cryptographic disclosure. ANV provides provider identity before
+cryptographic disclosure. ATA provides provider identity before
 content delivery.
 
 **Rogue agent injection in pipeline**
@@ -155,20 +161,20 @@ point of injection without content analysis.
 
 MCP and A2A are current instances of a broader class of agentic
 protocols that independently exhibit the same session-layer gap.
-ANV is not specific to either protocol.
+ATA is not specific to either protocol.
 
 **MCP:** OAuth 2.1 and PKCE establish token integrity. They do not
 prove which AI provider instance initiated the request at the hardware
-level. ANV addresses this as a TLS extension beneath MCP.
+level. ATA addresses this as a TLS extension beneath MCP.
 No MCP protocol changes required.
 
 **A2A:** Signed agent cards (v0.3) establish card content integrity.
-ANV adds hardware-bound provider attestation at the session layer,
+ATA adds hardware-bound provider attestation at the session layer,
 complementing rather than replacing signed cards.
 No A2A protocol changes required.
 
 Any agentic protocol operating over TLS and satisfying the applicability
-criteria can adopt ANV without changes to the agentic protocol itself.
+criteria can adopt ATA without changes to the agentic protocol itself.
 
 ---
 
@@ -182,12 +188,12 @@ financially significant communications requiring session-layer audit trail.
 **H2AI — Verified AI Provider Identity**
 Human verifies AI provider certificate against known issuer before
 engaging. Certificate issuer mismatch detectable without content
-analysis. Complements FIDO2: ANV adds AI-side attestation.
+analysis. Complements FIDO2: ATA adds AI-side attestation.
 
 **AI2H — Disclosed AI Initiation**
 AI provider identity cryptographically available to recipient before
 content delivery. No existing transport-layer standard addresses this.
-Primary gap ANV targets. Applicable to AI-operated services subject
+Primary gap ATA targets. Applicable to AI-operated services subject
 to EU AI Act Article 52 disclosure requirements.
 
 **AI2AI — Agent Pipeline Attestation**
@@ -208,34 +214,34 @@ satisfied. C2PA, DKIM, S/MIME address these cases.
 **Non-bidirectional sessions** (DNS, NTP, CDN): criterion 1 not satisfied.
 
 **Content signing** (code signing, package registries, Git): criterion 3
-not applicable in ANV sense. Existing standards apply.
+not applicable in ATA sense. Existing standards apply.
 
 ---
 
 ## Relation to Existing Standards
 
-| Standard | Function | Relation to ANV |
+| Standard | Function | Relation to ATA |
 |---|---|---|
-| TLS 1.3 | Server certificate verification | ANV adds session-layer authorization type encoding |
+| TLS 1.3 | Server certificate verification | ATA adds session-layer authorization type encoding |
 | mTLS | Mutual certificate authentication | Establishes workload identity; does not encode human vs AI type |
-| FIDO2 | Human-device binding | Human side only; ANV adds AI-side and session-level type |
+| FIDO2 | Human-device binding | Human side only; ATA adds AI-side and session-level type |
 | SPIFFE/SPIRE | Workload identity (cloud/K8s) | Infrastructure identity; no human/AI semantic distinction |
-| OAuth 2.1 | Authorization scope and token integrity | Permission layer; ANV is attestation layer below |
-| RATS/EAT [RFC9528] | Remote attestation procedures | ANV attestation_payload uses EAT format; RATS is the verification layer |
-| RFC 9421 | HTTP Message Signatures | HTTP-layer signing; ANV operates at TLS session layer |
-| MCP auth spec | Token-based MCP authorization | Hardware-level provider attestation open; ANV addresses this |
-| A2A agent cards | Agent capability declaration | Card integrity (v0.3); ANV adds session-layer hardware attestation |
-| C2PA | Content signing post-creation | Asynchronous; out of ANV scope |
-| CT logs | Certificate audit trail | Proposed as ANV attestation registry model |
+| OAuth 2.1 | Authorization scope and token integrity | Permission layer; ATA is attestation layer below |
+| RATS/EAT [RFC9528] | Remote attestation procedures | ATA attestation_payload uses EAT format; RATS is the verification layer |
+| RFC 9421 | HTTP Message Signatures | HTTP-layer signing; ATA operates at TLS session layer |
+| MCP auth spec | Token-based MCP authorization | Hardware-level provider attestation open; ATA addresses this |
+| A2A agent cards | Agent capability declaration | Card integrity (v0.3); ATA adds session-layer hardware attestation |
+| C2PA | Content signing post-creation | Asynchronous; out of ATA scope |
+| CT logs | Certificate audit trail | Proposed as ATA attestation registry model |
 
-ANV is composable with all of the above:
-TLS+ANV, MCP+ANV, A2A+ANV, FIDO2+ANV, SPIFFE+ANV.
+ATA is composable with all of the above:
+TLS+ATA, MCP+ATA, A2A+ATA, FIDO2+ATA, SPIFFE+ATA.
 
 ---
 
 ## Trust Model
 
-ANV inherits the PKI trust model [RFC5280]. The protocol provides
+ATA inherits the PKI trust model [RFC5280]. The protocol provides
 cryptographic proof of authorization type at the session layer.
 Trust in the authorizing party is a reputational and legal concern
 outside protocol scope — consistent with TLS and FIDO2.
@@ -249,15 +255,15 @@ at the organizational level from session records.
 
 ## Attestation Payload Format
 
-ANV attestation_payload uses Entity Attestation Token (EAT) format
+ATA attestation_payload uses Entity Attestation Token (EAT) format
 [RFC9528], consistent with IETF RATS (Remote ATtestation procedureS)
 architecture. Hardware-specific verification (SGX, SEV, TDX, TrustZone)
 is delegated to RATS Verifier services, abstracting hardware diversity
-from the ANV session layer. Receiving parties verify the EAT token
+from the ATA session layer. Receiving parties verify the EAT token
 from a RATS Verifier, not raw hardware attestation evidence directly.
 
 This approach reuses existing RATS infrastructure and avoids
-requiring per-hardware verification logic at every ANV endpoint.
+requiring per-hardware verification logic at every ATA endpoint.
 
 ---
 
@@ -265,7 +271,7 @@ requiring per-hardware verification logic at every ANV endpoint.
 
 No new hardware infrastructure required. AI providers on existing
 TEE-capable infrastructure (Intel TXT, AMD SEV, ARM TrustZone)
-implement ANV without hardware changes.
+implement ATA without hardware changes.
 
 Existing Certificate Authorities extend to issue AI provider endpoint
 certificates using existing organizational validation processes.
@@ -301,7 +307,7 @@ Adoption is voluntary. UNSIGNED remains valid for legacy compatibility.
 
 ```
 PoC Stage 1 — MCP (Q2 2026)
-  TLS ANV extension, vendor-neutral mock attestation
+  TLS ATA extension, vendor-neutral mock attestation
   Single AI provider → single MCP server
   Demonstrate: provider type visible before first tool call
   Measure: Phase 1 latency overhead
@@ -319,8 +325,8 @@ MVP (Q3 2026)
 
 Product v1 (2027)
   CA/Browser Forum AI provider cert profile adopted
-  MLS+ANV, MCP+ANV, A2A+ANV extensions ratified
-  Browser ANV indicator
+  MLS+ATA, MCP+ATA, A2A+ATA extensions ratified
+  Browser ATA indicator
 
 Standardization (2027+)
   IANA assignments
@@ -336,5 +342,5 @@ Regulatory (parallel with Product v1)
 
 **Author:** Alex Anokhin
 **Contact:** olanokhin@gmail.com
-**GitHub:** github.com/olanokhin/anv-protocol
+**GitHub:** github.com/olanokhin/ata-protocol
 **Date:** April 2026

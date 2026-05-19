@@ -1,16 +1,20 @@
-# ANV SDK — Architecture and Implementation Roadmap
+# ATA SDK — Architecture and Implementation Roadmap
 ## Status: Design concept | Not part of protocol specification
 ## Date: April 2026
 
-This document captures the SDK design intent for the ANV protocol.
+This document captures the SDK design intent for the ATA protocol.
 SDK concerns are separate from the protocol specification and do not
-affect draft-anokhin-anv-00 or any IETF submission.
+affect draft-anokhin-ata-00 or any IETF submission.
+
+Compatibility note: API examples that still use `ANV`/`anv` names
+reflect the current PoC naming and are placeholders pending a later
+ATA SDK/API migration.
 
 ---
 
 ## Core Architecture Principle
 
-The ANV SDK is layered. The Rust core library provides the
+The ATA SDK is layered. The Rust core library provides the
 performance-critical implementation. All other language SDKs
 wrap the Rust core via FFI or provide independent implementations
 where the ecosystem demands it.
@@ -27,10 +31,10 @@ where the ecosystem demands it.
 │          (cloud native, WIMSE, service mesh)             │
 ├─────────────────────────────────────────────────────────┤
 │                   Rust Core Library                      │
-│         ANV TLS extension + EAT token + crypto           │
+│         ATA TLS extension + EAT token + crypto           │
 │              C FFI for legacy C/C++ stacks               │
 ├─────────────────────────────────────────────────────────┤
-│              Protocol Layer (ANV draft-00)               │
+│              Protocol Layer (ATA draft-00)               │
 │         TLS 1.3 extension | QUIC | RATS/EAT              │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -52,9 +56,9 @@ Community    First adopters are Python AI engineers
 ```
 
 Deliverables:
-- Mock ANV TLS extension
+- Mock ATA TLS extension
 - Mock EAT token generation
-- MCP server with ANV authorization type logging
+- MCP server with ATA authorization type logging
 - Latency benchmark vs baseline
 
 ---
@@ -96,8 +100,8 @@ Banking      Spring + JVM = standard enterprise stack
 ```
 
 Deliverables:
-- Spring Boot ANV starter
-- Android ANV client library
+- Spring Boot ATA starter
+- Android ATA client library
 - Hyperledger Besu blockchain provider
 - Enterprise audit trail integration
 
@@ -112,8 +116,8 @@ Teams        Direct AI2H use case
 ```
 
 Deliverables:
-- Azure ANV middleware
-- Teams ANV integration
+- Azure ATA middleware
+- Teams ATA integration
 - .NET BlockchainProvider for Azure
 
 ---
@@ -160,7 +164,7 @@ Target: Wire, WhatsApp-style messaging, telecom OTP stacks.
 Wire         Direct MVP messenger target — Elixir backend
 WhatsApp     Erlang/OTP — 2B users, proven real-time scale
 BEAM VM      Millions of lightweight processes
-             Each ANV session = isolated Erlang process
+             Each ATA session = isolated Erlang process
              Perfect concurrency model for session-per-connection
 Telecom      Erlang created for telecom — natural fit
 ```
@@ -170,7 +174,7 @@ Telecom      Erlang created for telecom — natural fit
 Target: iOS clients, Apple Secure Enclave for SIGNED_HUMAN.
 
 ```
-iOS          Native ANV client for mobile
+iOS          Native ATA client for mobile
 Secure       Apple Secure Enclave = SIGNED_HUMAN root of trust
 Enclave      Direct hardware binding for biometric attestation
 ```
@@ -192,7 +196,7 @@ from typing import Optional
 @dataclass
 class EATToken:
     provider_cert: str       # AI provider certificate subject
-    session_id: str          # ANV session identifier
+    session_id: str          # ATA session identifier
     authorization_type: str  # SIGNED_HUMAN | SIGNED_AI | UNSIGNED
     hardware_binding: bytes  # TPM/TEE attestation evidence
     timestamp: int           # Unix timestamp
@@ -336,11 +340,11 @@ contract ANVVerifier {
 ## Repository Structure
 
 ```
-anv-protocol/
+ata-protocol/
   spec/
-    draft-anokhin-anv-00.txt
-    anv-implementation-guidance.md
-    anv-sdk-design.md              ← this document
+    draft-anokhin-ata-00.txt
+    ata-implementation-guidance.md
+    ata-sdk-design.md              ← this document
   sdk/
     python/                        ← Stage 1, PoC
     go/                            ← Stage 2, MVP
@@ -360,7 +364,7 @@ anv-protocol/
 
 ## What This Does NOT Change
 
-- ANV protocol specification is unchanged
+- ATA protocol specification is unchanged
 - TLS handshake is unchanged
 - EAT token format is unchanged
 - Blockchain integration does not affect session establishment

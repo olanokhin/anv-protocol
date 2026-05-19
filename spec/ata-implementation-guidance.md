@@ -1,19 +1,23 @@
-# ANV Implementation Guidance
-## draft-anokhin-anv-ig-00 | April 2026
+# ATA Implementation Guidance
+## draft-anokhin-ata-ig-00 | April 2026
 
-This document provides implementation guidance for the ANV protocol
-as defined in draft-anokhin-anv-00. It describes required changes per
+This document provides implementation guidance for the ATA protocol
+as defined in draft-anokhin-ata-00. It describes required changes per
 affected protocol, a complete applicability matrix, and an adoption
 roadmap by stakeholder category.
 
 This document is informational. It does not define normative requirements.
 
+Compatibility note: several wire/API examples still use legacy
+`ANV`/`anv` identifiers from the current PoC. Those names are
+placeholders pending a separate ATA wire/API migration.
+
 ---
 
 ## 1. Affected Protocols and Required Changes
 
-Protocols are classified by satisfaction of the ANV applicability
-criteria defined in draft-anokhin-anv-00 Section 4:
+Protocols are classified by satisfaction of the ATA applicability
+criteria defined in draft-anokhin-ata-00 Section 4:
 
 ```
 (1) Real-time bidirectional channel
@@ -45,10 +49,10 @@ ServerHello:
   anv_peer_level: { SIGNED_HUMAN | SIGNED_AI | UNSIGNED }
 ```
 
-Backward compatible. Sessions without ANV proceed as standard TLS 1.3.
+Backward compatible. Sessions without ATA proceed as standard TLS 1.3.
 
 Payload size note: EAT tokens may be several kilobytes. Two mitigations
-under evaluation for draft-01: (a) deferred attestation — ANV handshake
+under evaluation for draft-01: (a) deferred attestation — ATA handshake
 as post-TLS message avoiding ClientHello size constraints; (b) TLS ECH
 (Encrypted ClientHello) — attestation_payload inside ECH concealing
 organizational metadata from passive observers.
@@ -63,14 +67,14 @@ in draft-01.
 
 **Change type:** TLS extension on existing HTTPS transport only
 
-MCP operates over standard HTTPS. ANV requires no changes to the MCP
-protocol itself. The TLS ANV extension (Section 1.1.1) is applied to
+MCP operates over standard HTTPS. ATA requires no changes to the MCP
+protocol itself. The TLS ATA extension (Section 1.1.1) is applied to
 the underlying TLS connection. The MCP server receives authorization
 type before any MCP messages are exchanged.
 
-ANV and OAuth 2.1 are complementary within MCP:
+ATA and OAuth 2.1 are complementary within MCP:
 - OAuth 2.1: establishes what the agent is permitted to do
-- ANV: establishes which hardware-bound provider instance is acting
+- ATA: establishes which hardware-bound provider instance is acting
 
 PoC implementation note: use vendor-neutral provider identifier
 (e.g., "Example AI Provider") not a specific vendor name, to
@@ -83,12 +87,12 @@ demonstrate protocol-agnostic applicability.
 **Change type:** TLS extension on existing HTTPS transport +
 optional Agent Card field
 
-A2A operates over HTTPS (JSON-RPC 2.0). ANV requires no changes
-to A2A itself. Signed agent cards (A2A v0.3) and ANV are complementary:
-cards establish content integrity; ANV adds session-layer hardware
+A2A operates over HTTPS (JSON-RPC 2.0). ATA requires no changes
+to A2A itself. Signed agent cards (A2A v0.3) and ATA are complementary:
+cards establish content integrity; ATA adds session-layer hardware
 attestation.
 
-Optional Agent Card ANV field:
+Optional Agent Card ATA field:
 ```json
 {
   "name": "Example Agent",
@@ -101,7 +105,7 @@ Optional Agent Card ANV field:
 }
 ```
 
-The Agent Card ANV field is informational. The authoritative
+The Agent Card ATA field is informational. The authoritative
 attestation is the TLS-layer handshake.
 
 ---
@@ -155,7 +159,7 @@ DTLS Extension: anv_authorization
 **Change type:** New SIP header field
 
 ```
-ANV-Authorization: SIGNED_AI; provider="example.com";
+ATA-Authorization: SIGNED_AI; provider="example.com";
                    cert-fingerprint=sha-256:AA:BB:...;
                    attestation-level=AI_ATTESTED
 ```
@@ -175,19 +179,19 @@ Full specification deferred to future draft.
 Criterion (2) satisfied only as explicit wssa:// scheme.
 
 ```
-wssa://   ANV handshake MUST complete before first WebSocket frame
+wssa://   ATA handshake MUST complete before first WebSocket frame
 ```
 
-ANV via HTTP upgrade within existing https:// session does not
+ATA via HTTP upgrade within existing https:// session does not
 satisfy criterion (2) and is out of scope for this draft.
 
 ---
 
 #### 1.2.2 XMPP [RFC6120]
 
-Criterion (2) satisfied only if ANV stream feature is negotiated
+Criterion (2) satisfied only if ATA stream feature is negotiated
 before first content stanza. Session MUST be classified UNSIGNED
-if content precedes ANV negotiation.
+if content precedes ATA negotiation.
 
 ---
 
@@ -200,7 +204,7 @@ Webhooks               Async
 Push notifications     Async
 DNS                    No bidirectional session — DNSSEC
 NTP                    No bidirectional session
-CDN delivery           No authorizing party in ANV sense
+CDN delivery           No authorizing party in ATA sense
 Code signing           Content signing — GPG, Authenticode
 Package registries     Content signing
 Git commits            Content signing — GPG
@@ -224,7 +228,7 @@ Initiator:  SIGNED_HUMAN | personal device, no org cert
 Recipient:  Detectable: certificate issuer mismatch — no content analysis
 ```
 
-**Scenario C: No ANV**
+**Scenario C: No ATA**
 ```
 Initiator:  UNSIGNED — policy: recipient determines
 ```
@@ -327,7 +331,7 @@ certificate profile. CT log publication on same basis as domain certs.
 
 Required at MVP:
 1. Obtain AI provider endpoint cert from one CA
-2. Implement ANV TLS extension in HTTPS service
+2. Implement ATA TLS extension in HTTPS service
 3. Present SIGNED_AI on outbound MCP and A2A sessions
 
 Hardware: no new procurement for providers on TEE-capable
@@ -339,11 +343,11 @@ PoC: self-signed cert with vendor-neutral provider identifier.
 
 ### 3.3 Agentic Protocol Communities
 
-**MCP:** No protocol changes required. ANV operates at TLS layer.
+**MCP:** No protocol changes required. ATA operates at TLS layer.
 Reference implementation to be submitted to MCP community after PoC.
 
-**A2A:** No protocol changes required. Optional Agent Card ANV field
-to be proposed to A2A working group after PoC. ANV complements signed
+**A2A:** No protocol changes required. Optional Agent Card ATA field
+to be proposed to A2A working group after PoC. ATA complements signed
 agent cards without replacing them.
 
 ---
@@ -352,7 +356,7 @@ agent cards without replacing them.
 
 **PoC/MVP:** No changes required.
 
-**Product v1:** ANV authorization type indicator in connection
+**Product v1:** ATA authorization type indicator in connection
 information panel over https://.
 
 **Standardization:** httpsa:// URI scheme IANA registration.
@@ -360,33 +364,33 @@ information panel over https://.
 ```
 🟢  SIGNED_HUMAN   human authorized [org if present]
 🔵  SIGNED_AI      AI authorized — provider: [cert subject]
-⚪  UNSIGNED       no ANV data
+⚪  UNSIGNED       no ATA data
 ```
 
 ---
 
 ### 3.5 Messaging Platforms
 
-**MVP:** ANV indicator in one messenger over existing DTLS connection.
+**MVP:** ATA indicator in one messenger over existing DTLS connection.
 
-**Product v1:** MLS+ANV KeyPackage and GroupContext extensions.
+**Product v1:** MLS+ATA KeyPackage and GroupContext extensions.
 
 ---
 
 ### 3.6 VoIP and Call Center Infrastructure
 
-**MVP:** SIP ANV-Authorization header. AI endpoints obtain provider
+**MVP:** SIP ATA-Authorization header. AI endpoints obtain provider
 endpoint certificates. Recipient device displays authorization type
 before call answer.
 
-EU AI Act Article 52 alignment: ANV provides cryptographic mechanism
+EU AI Act Article 52 alignment: ATA provides cryptographic mechanism
 for verifiable AI disclosure at protocol layer.
 
 ---
 
 ### 3.7 Regulators
 
-No protocol changes required. ANV produces session-level audit trail
+No protocol changes required. ATA produces session-level audit trail
 admissible as technical evidence of disclosure or non-disclosure.
 
 EU AI Act Article 52 candidate mechanism: cryptographically verifiable
@@ -404,7 +408,7 @@ No forward dependencies.
 
 ```
 PoC Stage 1 — MCP (Q2 2026)
-  TLS ANV extension, vendor-neutral mock attestation (EAT format)
+  TLS ATA extension, vendor-neutral mock attestation (EAT format)
   Single AI provider → single MCP server
   Demonstrate: SIGNED_AI visible before first tool call
   Measure: Phase 1 latency overhead
@@ -412,16 +416,16 @@ PoC Stage 1 — MCP (Q2 2026)
   Dependencies: none
 
 PoC Stage 2 — A2A (Q2 2026)
-  Same TLS ANV extension on A2A HTTPS transport
+  Same TLS ATA extension on A2A HTTPS transport
   Broken chain detection: UNSIGNED agent at hop 3 flagged
-  Optional Agent Card ANV field
+  Optional Agent Card ATA field
   Artifact: cross-protocol demo
   Dependencies: PoC Stage 1 complete
 
 MVP (Q3 2026)
   One CA issues real AI provider endpoint cert (OV process)
-  SIP ANV-Authorization — AI call center use case
-  ANV indicator in one messenger (DTLS layer, no MLS changes)
+  SIP ATA-Authorization — AI call center use case
+  ATA indicator in one messenger (DTLS layer, no MLS changes)
   IETF draft-01: TLS extension wire format + KDF + EAT payload spec
   Community outreach: MCP, A2A, IETF RATS WG, IETF WIMSE WG, IRTF
   WIMSE WG is directly relevant: Workload Identity in Multi-System
@@ -430,8 +434,8 @@ MVP (Q3 2026)
 
 Product v1 (2027)
   CA/Browser Forum AI provider cert profile adopted
-  MLS+ANV, MCP+ANV, A2A+ANV extensions ratified
-  Browser ANV indicator over https://
+  MLS+ATA, MCP+ATA, A2A+ATA extensions ratified
+  Browser ATA indicator over https://
   Production handshake at scale
   Dependencies: MVP demonstrated, working group formed
 
@@ -451,5 +455,5 @@ Regulatory (parallel with Product v1)
 
 **Author:** Alex Anokhin
 **Contact:** olanokhin@gmail.com
-**GitHub:** github.com/olanokhin/anv-protocol
+**GitHub:** github.com/olanokhin/ata-protocol
 **Date:** April 2026

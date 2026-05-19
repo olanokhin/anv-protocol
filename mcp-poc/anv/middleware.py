@@ -124,7 +124,7 @@ class ANVMiddleware(BaseHTTPMiddleware):
                     AuthorizationType.SIGNED_HUMAN.value,
                 ],
                 "hint": "Attach X-ANV-* headers to your request.",
-                "docs": "https://github.com/olanokhin/anv-protocol",
+                "docs": "https://github.com/olanokhin/ata-protocol",
             },
         )
 
